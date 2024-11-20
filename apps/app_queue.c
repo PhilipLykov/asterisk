@@ -4237,7 +4237,9 @@ static int say_position(struct queue_ent *qe, int ringing)
 		return 0;
 	}
 
-	/* If either our position has changed, or we are over the freq timer, say position */
+	/* Don't play anything if both our position has not changed and we are within the freq timer.
+	Since the Last_Pos_Said is 0 at entrance to queue the position and waiting time will be announced at entrance. 	
+  	*/
 	if ((qe->last_pos_said == qe->pos) && ((now - qe->last_pos) < qe->parent->announcefrequency)) {
 		return 0;
 	}
@@ -4247,7 +4249,6 @@ static int say_position(struct queue_ent *qe, int ringing)
 	} else {
 		ast_moh_stop(qe->chan);
 	}
-
 	
 	/* Round hold time to nearest minute */
 	avgholdmins = labs(((qe->parent->holdtime + 30) - (now - qe->start)) / 60);
@@ -4264,7 +4265,7 @@ static int say_position(struct queue_ent *qe, int ringing)
 
 	/* If the hold time is >1 min, if it's enabled, and if it's not
 	   supposed to be only once and we have already said it, say it */
-	if ((avgholdmins+avgholdsecs) > 0 && qe->parent->announceholdtime &&
+	if (avgholdmins > 0 && qe->parent->announceholdtime &&
 		((qe->parent->announceholdtime == ANNOUNCEHOLDTIME_ONCE && !qe->last_pos) ||
 		!(qe->parent->announceholdtime == ANNOUNCEHOLDTIME_ONCE))) {
 		res = play_file(qe->chan, qe->parent->sound_holdtime);
@@ -4280,11 +4281,20 @@ static int say_position(struct queue_ent *qe, int ringing)
 			res = ast_say_number(qe->chan, avgholdsecs, AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
 			res = play_file(qe->chan, qe->parent->sound_seconds);
 		}
+		/* Set our last_pos indicators */
+		qe->last_pos = now;
+		if (qe->parent->announceposition) {
+			ast_verb(3, "Told %s in %s their queue position (which was %d)\n",
+				ast_channel_name(qe->chan), qe->parent->name, qe->pos);
+		}
+		if (say_thanks) {
+			res = play_file(qe->chan, qe->parent->sound_thanks);
+		}
 	}
 
 	
-	/* Only announce if the caller's queue position has improved since last time */
-	if ((qe->parent->announceposition_only_up && qe->last_pos_said > qe->pos) && 
+	/* Only announce if the caller's queue position has improved since last time (if it not the first round)*/
+	if (((qe->parent->announceposition_only_up && qe->last_pos_said > qe->pos) || qe->last_pos_said == 0) && 
 		(qe->parent->announceposition == ANNOUNCEPOSITION_YES ||
 		qe->parent->announceposition == ANNOUNCEPOSITION_MORE_THAN ||
 		(qe->parent->announceposition == ANNOUNCEPOSITION_LIMIT &&
@@ -4296,35 +4306,28 @@ static int say_position(struct queue_ent *qe, int ringing)
 		} else if (qe->parent->announceposition == ANNOUNCEPOSITION_MORE_THAN && qe->pos > qe->parent->announcepositionlimit) {
 			res = (
 				play_file(qe->chan, qe->parent->queue_quantity1) ||
-				ast_say_number(qe->chan, qe->parent->announcepositionlimit, AST_DIGIT_ANY,
-						ast_channel_language(qe->chan), NULL) || /* Needs gender */
+				ast_say_number(qe->chan, qe->parent->announcepositionlimit, AST_DIGIT_ANY, ast_channel_language(qe->chan), NULL) || /* Needs gender */
 				play_file(qe->chan, qe->parent->queue_quantity2));
 		/* Say there are currently N callers waiting */
 		} else {
 			res = (
 				play_file(qe->chan, qe->parent->sound_thereare) ||
-				ast_say_number(qe->chan, qe->pos, AST_DIGIT_ANY,
-						ast_channel_language(qe->chan), "n") || /* Needs gender */
+				ast_say_number(qe->chan, qe->pos, AST_DIGIT_ANY, ast_channel_language(qe->chan), "n") || /* Needs gender */
 				play_file(qe->chan, qe->parent->sound_calls));
 		}
-	}
-
-
-	if (qe->parent->announceposition) {
-		ast_verb(3, "Told %s in %s their queue position (which was %d)\n",
-			ast_channel_name(qe->chan), qe->parent->name, qe->pos);
-	}
-	if (say_thanks) {
-		res = play_file(qe->chan, qe->parent->sound_thanks);
+		/* Set our last_pos_said indicators */
+		qe->last_pos_said = qe->pos;
+		if (qe->parent->announceposition) {
+			ast_verb(3, "Told %s in %s their queue position (which was %d)\n", ast_channel_name(qe->chan), qe->parent->name, qe->pos);
+		}
+		if (say_thanks) {
+			res = play_file(qe->chan, qe->parent->sound_thanks);
+		}
 	}
 
 	if ((res > 0 && !valid_exit(qe, res))) {
 		res = 0;
-	}
-
-	/* Set our last_pos indicators */
-	qe->last_pos = now;
-	qe->last_pos_said = qe->pos;
+	}	
 
 	/* Don't restart music on hold if we're about to exit the caller from the queue */
 	if (!res) {
