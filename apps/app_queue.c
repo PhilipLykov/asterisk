@@ -2981,7 +2981,7 @@ static void init_queue(struct call_queue *q)
 	q->announcefrequency = 0;
 	q->minannouncefrequency = DEFAULT_MIN_ANNOUNCE_FREQUENCY;
 	q->announceholdtime = 1;
-	q->announceposition_only_up = 0;
+	q->announceposition_only_up = 1;
 	q->announcepositionlimit = 10; /* Default 10 positions */
 	q->announceposition = ANNOUNCEPOSITION_YES; /* Default yes */
 	q->roundingseconds = 0; /* Default - don't announce seconds */
@@ -4242,47 +4242,13 @@ static int say_position(struct queue_ent *qe, int ringing)
 		return 0;
 	}
 
-	/* Only announce if the caller's queue position has improved since last time */
-	if (qe->parent->announceposition_only_up && qe->last_pos_said <= qe->pos) {
-		return 0;
-	}
-
 	if (ringing) {
 		ast_indicate(qe->chan,-1);
 	} else {
 		ast_moh_stop(qe->chan);
 	}
 
-	if (qe->parent->announceposition == ANNOUNCEPOSITION_YES ||
-		qe->parent->announceposition == ANNOUNCEPOSITION_MORE_THAN ||
-		(qe->parent->announceposition == ANNOUNCEPOSITION_LIMIT &&
-		qe->pos <= qe->parent->announcepositionlimit)) {
-		say_thanks = 1;
-		/* Say we're next, if we are */
-		if (qe->pos == 1) {
-			res = play_file(qe->chan, qe->parent->sound_next);
-			if (!res) {
-				goto posout;
-			}
-		/* Say there are more than N callers */
-		} else if (qe->parent->announceposition == ANNOUNCEPOSITION_MORE_THAN && qe->pos > qe->parent->announcepositionlimit) {
-			res = (
-				play_file(qe->chan, qe->parent->queue_quantity1) ||
-				ast_say_number(qe->chan, qe->parent->announcepositionlimit, AST_DIGIT_ANY,
-						ast_channel_language(qe->chan), NULL) || /* Needs gender */
-				play_file(qe->chan, qe->parent->queue_quantity2));
-		/* Say there are currently N callers waiting */
-		} else {
-			res = (
-				play_file(qe->chan, qe->parent->sound_thereare) ||
-				ast_say_number(qe->chan, qe->pos, AST_DIGIT_ANY,
-						ast_channel_language(qe->chan), "n") || /* Needs gender */
-				play_file(qe->chan, qe->parent->sound_calls));
-		}
-		if (res) {
-			goto playout;
-		}
-	}
+	
 	/* Round hold time to nearest minute */
 	avgholdmins = labs(((qe->parent->holdtime + 30) - (now - qe->start)) / 60);
 
@@ -4303,42 +4269,53 @@ static int say_position(struct queue_ent *qe, int ringing)
 		!(qe->parent->announceholdtime == ANNOUNCEHOLDTIME_ONCE))) {
 		say_thanks = 1;
 		res = play_file(qe->chan, qe->parent->sound_holdtime);
-		if (res) {
-			goto playout;
-		}
-
 		if (avgholdmins >= 1) {
 			res = ast_say_number(qe->chan, avgholdmins, AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
-			if (res) {
-				goto playout;
-			}
-
 			if (avgholdmins == 1) {
 				res = play_file(qe->chan, qe->parent->sound_minute);
-				if (res) {
-					goto playout;
-				}
 			} else {
 				res = play_file(qe->chan, qe->parent->sound_minutes);
-				if (res) {
-					goto playout;
-				}
 			}
 		}
 		if (avgholdsecs >= 1) {
 			res = ast_say_number(qe->chan, avgholdsecs, AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
-			if (res) {
-				goto playout;
-			}
-
-			res = play_file(qe->chan, qe->parent->sound_seconds);
-			if (res) {
-				goto playout;
+			if (avgholdsecs == 1) {
+				res = play_file(qe->chan, qe->parent->sound_second);
+			} else {
+				res = play_file(qe->chan, qe->parent->sound_seconds);
 			}
 		}
 	}
 
-posout:
+	
+	/* Only announce if the caller's queue position has improved since last time */
+	if (qe->parent->announceposition_only_up && qe->last_pos_said > qe->pos) && 
+		((qe->parent->announceposition == ANNOUNCEPOSITION_YES ||
+		qe->parent->announceposition == ANNOUNCEPOSITION_MORE_THAN ||
+		(qe->parent->announceposition == ANNOUNCEPOSITION_LIMIT &&
+		qe->pos <= qe->parent->announcepositionlimit))) {
+		say_thanks = 1;
+		/* Say we're next, if we are */
+		if (qe->pos == 1) {
+			res = play_file(qe->chan, qe->parent->sound_next);
+		/* Say there are more than N callers */
+		} else if (qe->parent->announceposition == ANNOUNCEPOSITION_MORE_THAN && qe->pos > qe->parent->announcepositionlimit) {
+			res = (
+				play_file(qe->chan, qe->parent->queue_quantity1) ||
+				ast_say_number(qe->chan, qe->parent->announcepositionlimit, AST_DIGIT_ANY,
+						ast_channel_language(qe->chan), NULL) || /* Needs gender */
+				play_file(qe->chan, qe->parent->queue_quantity2));
+		/* Say there are currently N callers waiting */
+		} else {
+			res = (
+				play_file(qe->chan, qe->parent->sound_thereare) ||
+				ast_say_number(qe->chan, qe->pos, AST_DIGIT_ANY,
+						ast_channel_language(qe->chan), "n") || /* Needs gender */
+				play_file(qe->chan, qe->parent->sound_calls));
+		}
+	}
+
+
 	if (qe->parent->announceposition) {
 		ast_verb(3, "Told %s in %s their queue position (which was %d)\n",
 			ast_channel_name(qe->chan), qe->parent->name, qe->pos);
@@ -4346,7 +4323,6 @@ posout:
 	if (say_thanks) {
 		res = play_file(qe->chan, qe->parent->sound_thanks);
 	}
-playout:
 
 	if ((res > 0 && !valid_exit(qe, res))) {
 		res = 0;
