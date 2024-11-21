@@ -4243,12 +4243,6 @@ static int say_position(struct queue_ent *qe, int ringing)
 	if ((qe->last_pos_said == qe->pos) && ((now - qe->last_pos) < qe->parent->announcefrequency)) {
 		return 0;
 	}
-
-	if (ringing) {
-		ast_indicate(qe->chan,-1);
-	} else {
-		ast_moh_stop(qe->chan);
-	}
 	
 	/* Round hold time to nearest minute */
 	avgholdmins = labs(((qe->parent->holdtime + 30) - (now - qe->start)) / 60);
@@ -4261,13 +4255,17 @@ static int say_position(struct queue_ent *qe, int ringing)
 		avgholdsecs = 0;
 	}
 
-	ast_verb(3, "Hold time for %s is %ld minute(s) %ld seconds\n", qe->parent->name, avgholdmins, avgholdsecs);
-
 	/* If the hold time is >1 min, if it's enabled, and if it's not
 	   supposed to be only once and we have already said it, say it */
 	if (avgholdmins > 0 && qe->parent->announceholdtime &&
 		((qe->parent->announceholdtime == ANNOUNCEHOLDTIME_ONCE && !qe->last_pos) ||
 		!(qe->parent->announceholdtime == ANNOUNCEHOLDTIME_ONCE))) {
+		ast_verb(3, "Hold time for %s is %ld minute(s) %ld seconds\n", qe->parent->name, avgholdmins, avgholdsecs);
+		if (ringing) {
+			ast_indicate(qe->chan,-1);
+		} else {
+			ast_moh_stop(qe->chan);
+		}
 		res = play_file(qe->chan, qe->parent->sound_holdtime);
 		if (avgholdmins >= 1) {
 			res = ast_say_number(qe->chan, avgholdmins, AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
@@ -4286,9 +4284,26 @@ static int say_position(struct queue_ent *qe, int ringing)
 		if (qe->parent->announceposition) {
 			ast_verb(3, "Told %s in %s their queue position (which was %d)\n",
 				ast_channel_name(qe->chan), qe->parent->name, qe->pos);
-		}
-		if (say_thanks) {
+		}		
+		/*Don't say Thanks if there will be position announcement*/
+		if (!(((qe->parent->announceposition_only_up && qe->last_pos_said > qe->pos) || qe->last_pos_said == 0) && 
+		(qe->parent->announceposition == ANNOUNCEPOSITION_YES ||
+		qe->parent->announceposition == ANNOUNCEPOSITION_MORE_THAN ||
+		(qe->parent->announceposition == ANNOUNCEPOSITION_LIMIT &&
+		qe->pos <= qe->parent->announcepositionlimit))) && say_thanks) {
 			res = play_file(qe->chan, qe->parent->sound_thanks);
+		}
+		if ((res > 0 && !valid_exit(qe, res))) {
+			res = 0;
+		}	
+	
+		/* Don't restart music on hold if we're about to exit the caller from the queue */
+		if (!res) {
+			if (ringing) {
+				ast_indicate(qe->chan, AST_CONTROL_RINGING);
+			} else {
+				ast_moh_start(qe->chan, qe->moh, NULL);
+			}
 		}
 	}
 
@@ -4299,6 +4314,11 @@ static int say_position(struct queue_ent *qe, int ringing)
 		qe->parent->announceposition == ANNOUNCEPOSITION_MORE_THAN ||
 		(qe->parent->announceposition == ANNOUNCEPOSITION_LIMIT &&
 		qe->pos <= qe->parent->announcepositionlimit))) {
+		if (ringing) {
+			ast_indicate(qe->chan,-1);
+		} else {
+			ast_moh_stop(qe->chan);
+		}
 		/* Say we're next, if we are */
 		if (qe->pos == 1) {
 			res = play_file(qe->chan, qe->parent->sound_next);
@@ -4323,19 +4343,22 @@ static int say_position(struct queue_ent *qe, int ringing)
 		if (say_thanks) {
 			res = play_file(qe->chan, qe->parent->sound_thanks);
 		}
+		if ((res > 0 && !valid_exit(qe, res))) {
+			res = 0;
+		}	
+	
+		/* Don't restart music on hold if we're about to exit the caller from the queue */
+		if (!res) {
+			if (ringing) {
+				ast_indicate(qe->chan, AST_CONTROL_RINGING);
+			} else {
+				ast_moh_start(qe->chan, qe->moh, NULL);
+			}
+		}
 	}
 
 	if ((res > 0 && !valid_exit(qe, res))) {
 		res = 0;
-	}	
-
-	/* Don't restart music on hold if we're about to exit the caller from the queue */
-	if (!res) {
-		if (ringing) {
-			ast_indicate(qe->chan, AST_CONTROL_RINGING);
-		} else {
-			ast_moh_start(qe->chan, qe->moh, NULL);
-		}
 	}
 	return res;
 }
