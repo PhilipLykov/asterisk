@@ -4267,17 +4267,135 @@ static int say_position(struct queue_ent *qe, int ringing)
 			ast_moh_stop(qe->chan);
 		}
 		res = play_file(qe->chan, qe->parent->sound_holdtime);
-		if (avgholdmins >= 1) {
-			res = ast_say_number(qe->chan, avgholdmins, AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
-			if (avgholdmins == 1) {
-				res = play_file(qe->chan, qe->parent->sound_minute);
+		if (avgholdmins >= 1) {			
+			if (!strncasecmp(ast_channel_language(qe->chan), "ru", 2)) {
+				if (avgholdmins <= 20) {
+					if (avgholdmins == 1) {
+						res = play_file(qe->chan, "wt-1");
+						res = play_file(qe->chan, "queue-minute-r");
+					} else if (avgholdmins == 2) {
+						res = play_file(qe->chan, "wt-2");
+						res = play_file(qe->chan, "queue-minutes-r");
+					} else if (avgholdmins > 2 && avgholdmins <= 4) {
+						res = ast_say_number(qe->chan, avgholdmins, AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
+						res = play_file(qe->chan, "queue-minutes-r");
+					} else if (avgholdmins > 4) {
+						res = ast_say_number(qe->chan, avgholdmins, AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
+						res = play_file(qe->chan, "queue-minutes");
+					}
+				} else if (avgholdmins < 100) {
+					if ((avgholdmins % 10) == 1) {						
+						res = ast_say_number(qe->chan, ((avgholdmins / 10) * 10), AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
+						res = play_file(qe->chan, "wt-1");
+						res = play_file(qe->chan, "queue-minute-r");
+					} else if ((avgholdmins % 10) == 2) {
+						res = ast_say_number(qe->chan, ((avgholdmins / 10) * 10), AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
+						res = play_file(qe->chan, "wt-2");
+						res = play_file(qe->chan, "queue-minutes-r");
+					} else  {
+						res = ast_say_number(qe->chan, ((avgholdmins / 10) * 10), AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
+						res = ast_say_number(qe->chan, (avgholdmins % 10), AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
+						res = play_file(qe->chan, "queue-minutes");
+					}
+				} else if (avgholdmins < 1000) {
+					if ((avgholdmins % 10) == 1) {						
+						res = ast_say_number(qe->chan, ((avgholdmins / 100) * 100), AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
+						res = ast_say_number(qe->chan, ((avgholdmins / 10) * 10), AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
+						res = play_file(qe->chan, "wt-1");
+						res = play_file(qe->chan, "queue-minute-r");
+					} else if ((avgholdmins % 10) == 2) {
+						res = ast_say_number(qe->chan, ((avgholdmins / 100) * 100), AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
+						res = ast_say_number(qe->chan, ((avgholdmins / 10) * 10), AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
+						res = play_file(qe->chan, "wt-2");
+						res = play_file(qe->chan, "queue-minutes-r");
+					} else  {
+						res = ast_say_number(qe->chan, ((avgholdmins / 100) * 100), AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
+						res = ast_say_number(qe->chan, ((avgholdmins / 10) * 10), AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
+						res = ast_say_number(qe->chan, (avgholdmins % 10), AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
+						res = play_file(qe->chan, "queue-minutes");
+					}
+				}
+			} else if (!strncasecmp(ast_channel_language(qe->chan), "it", 2)) {
+				if (avgholdmins <= 20) {
+					if (avgholdmins == 1) {
+							res = play_file(qe->chan, "queue-minute-r"); /* un minut */
+					} else if (avgholdmins == 2) {
+							res = play_file(qe->chan, "wt-2");			
+							res = play_file(qe->chan, "queue-minutes");
+					} else if (avgholdmins > 2) {
+						res = ast_say_number(qe->chan, avgholdmins, AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
+						res = play_file(qe->chan, "queue-minutes");
+					}
+				} else if (avgholdmins < 100) {
+					if ((avgholdmins % 10) == 1) {						
+						res = ast_say_number(qe->chan, ((avgholdmins / 10) * 10), AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
+						res = play_file(qe->chan, "and");
+						res = play_file(qe->chan, "wt-1");
+						res = play_file(qe->chan, "queue-minutes");
+					} else  {
+						res = ast_say_number(qe->chan, ((avgholdmins / 10) * 10), AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
+						res = play_file(qe->chan, "and");
+						res = ast_say_number(qe->chan, (avgholdmins % 10), AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
+						res = play_file(qe->chan, "queue-minutes");
+					}
+				} else if (avgholdmins < 1000) {
+					if ((avgholdmins % 10) == 1) {
+						res = ast_say_number(qe->chan, ((avgholdmins / 100) * 100), AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
+						res = ast_say_number(qe->chan, ((avgholdmins / 10) * 10), AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
+						res = play_file(qe->chan, "and");
+						res = play_file(qe->chan, "wt-1");
+						res = play_file(qe->chan, "queue-minutes");
+					} else if ((avgholdmins % 10) == 2) {
+						res = ast_say_number(qe->chan, ((avgholdmins / 100) * 100), AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
+						res = ast_say_number(qe->chan, ((avgholdmins / 10) * 10), AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
+						res = play_file(qe->chan, "and");
+						res = play_file(qe->chan, "wt-2");
+						res = play_file(qe->chan, "queue-minutes");
+					} else  {
+						res = ast_say_number(qe->chan, ((avgholdmins / 100) * 100), AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
+						res = ast_say_number(qe->chan, ((avgholdmins / 10) * 10), AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
+						res = play_file(qe->chan, "and");
+						res = ast_say_number(qe->chan, (avgholdmins % 10), AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
+						res = play_file(qe->chan, "queue-minutes");
+					}
+				}
 			} else {
-				res = play_file(qe->chan, qe->parent->sound_minutes);
+				if (avgholdmins == 1) {
+					res = ast_say_number(qe->chan, avgholdmins, AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
+					res = play_file(qe->chan, "queue-minute");
+				} else {
+					res = ast_say_number(qe->chan, avgholdmins, AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
+					res = play_file(qe->chan, "queue-minutes");
+				}
 			}
 		}
 		if (avgholdsecs >= 1) {
 			res = ast_say_number(qe->chan, avgholdsecs, AST_DIGIT_ANY, ast_channel_language(qe->chan), "n");
-			res = play_file(qe->chan, qe->parent->sound_seconds);
+			if (!strncasecmp(ast_channel_language(qe->chan), "ru", 2)) {
+				if (avgholdsecs <= 20) {
+					if (avgholdsecs == 1) {
+						res = play_file(qe->chan, "queue-second-r");
+					} else if (avgholdsecs >= 2 && avgholdmins <= 4) {
+						res = play_file(qe->chan, "queue-seconds-r");
+					} else if (avgholdsecs >= 5) {
+						res = play_file(qe->chan, qe->parent->sound_seconds);
+					}
+				} else {
+					if ((avgholdsecs % 10) == 1) {
+						res = play_file(qe->chan, "queue-second-r");
+					} else if ((avgholdsecs % 10) >= 2 && (avgholdsecs % 10) <= 4) {
+						res = play_file(qe->chan, "queue-seconds-r");
+					} else if ((avgholdsecs % 10) >= 5) {
+						res = play_file(qe->chan, qe->parent->sound_seconds);
+					}
+				}
+			} else {
+				if (avgholdsecs == 1) {
+					res = play_file(qe->chan, "queue-second");
+				} else {
+					res = play_file(qe->chan, qe->parent->sound_seconds);
+				}
+			}
 		}
 		/* Set our last_pos indicators */
 		qe->last_pos = now;
@@ -4285,12 +4403,12 @@ static int say_position(struct queue_ent *qe, int ringing)
 			ast_verb(3, "Told %s in %s their queue position (which was %d)\n",
 				ast_channel_name(qe->chan), qe->parent->name, qe->pos);
 		}		
-		/*Don't say Thanks if there will be position announcement*/
+		/*Don't say Thanks if there will be position announcement and if the position is bellow 2*/
 		if (!(((qe->parent->announceposition_only_up && qe->last_pos_said > qe->pos) || qe->last_pos_said == 0) && 
 		(qe->parent->announceposition == ANNOUNCEPOSITION_YES ||
 		qe->parent->announceposition == ANNOUNCEPOSITION_MORE_THAN ||
 		(qe->parent->announceposition == ANNOUNCEPOSITION_LIMIT &&
-		qe->pos <= qe->parent->announcepositionlimit))) && say_thanks) {
+		qe->pos <= qe->parent->announcepositionlimit))) && say_thanks && (qe->pos > 2)) {
 			res = play_file(qe->chan, qe->parent->sound_thanks);
 		}
 		if ((res > 0 && !valid_exit(qe, res))) {
@@ -4340,7 +4458,7 @@ static int say_position(struct queue_ent *qe, int ringing)
 		if (qe->parent->announceposition) {
 			ast_verb(3, "Told %s in %s their queue position (which was %d)\n", ast_channel_name(qe->chan), qe->parent->name, qe->pos);
 		}
-		if (say_thanks) {
+		if (say_thanks && qe->pos > 2) {
 			res = play_file(qe->chan, qe->parent->sound_thanks);
 		}
 		if ((res > 0 && !valid_exit(qe, res))) {
